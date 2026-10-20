@@ -14,3 +14,5 @@ All notable changes to this repository are documented here.
 - Documented faithful acquisition, data handling, attribution, and the
   separation between this repository's MIT code license and external data
   terms.
+- Declared the notebook runtime as an installable optional dependency set and
+  documented use of the repository's existing `.venv` environment.

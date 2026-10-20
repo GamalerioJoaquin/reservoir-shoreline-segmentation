@@ -43,20 +43,19 @@ The downloader validates the MD5 before replacing the final file and extracts
 only the selected sample when the notebook reads a ZIP. The complete archive
 and generated data stay outside Git.
 
-## Git Bash setup on Windows
+## Environment setup on Windows
 
-The repository has one environment for all development work. Changes in scope
-do not require a new environment.
+The repository uses its existing `.venv` environment for development and the
+notebook. Install the declared notebook and development extras into that
+environment; do not create a parallel environment.
 
 From Git Bash:
 
 ~~~
 cd /c/Users/joaco/Projects/reservoir-shoreline-segmentation
-python -m venv .venv
-source .venv/Scripts/activate
-python -m pip install --upgrade pip
-python -m pip install -e ".[notebooks,dev]"
-python -m ipykernel install --user --name reservoir-shoreline-segmentation --display-name "Python (Reservoir Shoreline Segmentation)"
+.venv/Scripts/python.exe -m pip install --upgrade pip
+.venv/Scripts/python.exe -m pip install -e ".[notebooks,dev]"
+.venv/Scripts/python.exe -m ipykernel install --user --name reservoir-shoreline-segmentation --display-name "Python (Reservoir Shoreline Segmentation)"
 ~~~
 
 Open the notebook with:
@@ -72,8 +71,9 @@ If activation is unavailable, use the environment directly:
 .venv/Scripts/jupyter.exe notebook notebooks/01_dataset_exploration.ipynb
 ~~~
 
-PowerShell users can activate the same environment with
-.venv/Scripts/Activate.ps1; this is only a shell-specific alternative.
+If `.venv` is absent, create it once with `python -m venv .venv`, then run the
+same installation commands. PowerShell users can activate it with
+`.venv/Scripts/Activate.ps1`, but activation is optional.
 
 ## Dataset location
 
