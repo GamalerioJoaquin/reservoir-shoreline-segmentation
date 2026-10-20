@@ -12,6 +12,7 @@ from reservoir_segmentation.boundaries import (
     weights_from_distance_squared,
 )
 from reservoir_segmentation.dataset import (
+    _download_progress_message,
     discover_pairs,
     locate_dataset_root,
     materialize_riverscope_sample,
@@ -55,6 +56,11 @@ def test_distance_and_weights_emphasize_boundary():
     assert boundary.any()
     assert distance_squared[2, 2] == 0
     assert weights[2, 2] > weights[0, 0]
+
+
+def test_download_progress_message_reports_known_and_unknown_sizes():
+    assert "50.0%" in _download_progress_message(5 * 1024 * 1024, 10 * 1024 * 1024)
+    assert "5.0 MiB received" in _download_progress_message(5 * 1024 * 1024, None)
 
 
 def test_visualization_crops_and_overlays():

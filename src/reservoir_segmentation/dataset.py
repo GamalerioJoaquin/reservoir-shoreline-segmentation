@@ -50,6 +50,22 @@ def _md5_file(path: str | os.PathLike[str], chunk_size: int = 1024 * 1024) -> st
     return digest.hexdigest()
 
 
+def _download_progress_message(downloaded: int, total: int | None, width: int = 30) -> str:
+    """Format a compact terminal or notebook progress indicator."""
+
+    downloaded_mib = downloaded / (1024 * 1024)
+    if total is None or total <= 0:
+        return f"\rDownloading RiverScope: {downloaded_mib:.1f} MiB received"
+    fraction = min(downloaded / total, 1.0)
+    filled = round(width * fraction)
+    bar = "#" * filled + "-" * (width - filled)
+    total_mib = total / (1024 * 1024)
+    return (
+        f"\rDownloading RiverScope: [{bar}] {fraction:.1%} "
+        f"({downloaded_mib:.1f}/{total_mib:.1f} MiB)"
+    )
+
+
 def download_riverscope_archive(
     destination: str | os.PathLike[str],
     *,
@@ -68,6 +84,7 @@ def download_riverscope_archive(
     destination_path.parent.mkdir(parents=True, exist_ok=True)
     if destination_path.is_file():
         if _md5_file(destination_path) == expected_md5:
+            print(f"Using existing verified archive: {destination_path}")
             return destination_path
         raise ValueError(
             f"Existing archive has an unexpected MD5: {destination_path}. "
@@ -76,9 +93,20 @@ def download_riverscope_archive(
 
     partial_path = destination_path.with_suffix(destination_path.suffix + ".part")
     try:
+        print(f"Connecting to the official RiverScope archive: {url}", flush=True)
         with urllib.request.urlopen(url, timeout=180) as response, partial_path.open("wb") as out:
+            content_length = response.headers.get("Content-Length")
+            total = int(content_length) if content_length and content_length.isdigit() else None
+            update_interval = max(total // 100, chunk_size) if total else 8 * 1024 * 1024
+            downloaded = 0
+            next_update = 0
             while chunk := response.read(chunk_size):
                 out.write(chunk)
+                downloaded += len(chunk)
+                if downloaded >= next_update:
+                    print(_download_progress_message(downloaded, total), end="", flush=True)
+                    next_update = downloaded + update_interval
+            print(_download_progress_message(downloaded, total), flush=True)
         actual_md5 = _md5_file(partial_path)
         if actual_md5 != expected_md5:
             raise ValueError(
