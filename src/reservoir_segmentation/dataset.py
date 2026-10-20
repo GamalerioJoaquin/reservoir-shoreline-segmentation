@@ -127,6 +127,21 @@ def _find_local_riverscope_file(root: Path, reference: str) -> Path:
     return min(matches, key=lambda path: len(path.parts))
 
 
+def _safe_sample_identifier(value: str) -> str:
+    """Return an identifier that is safe to use as a generated filename."""
+
+    identifier = value.strip()
+    forbidden_characters = '<>:"/\\|?*'
+    if (
+        not identifier
+        or identifier in {".", ".."}
+        or any(character in identifier for character in forbidden_characters)
+        or Path(identifier).name != identifier
+    ):
+        raise ValueError(f"Unsafe PlanetScope identifier for sample output: {value!r}")
+    return identifier
+
+
 def read_riverscope_split(
     source: str | os.PathLike[str],
     split: str = "train",
@@ -190,7 +205,9 @@ def materialize_riverscope_sample(
             else []
         )
         for row in selected:
-            identifier = row["planetscope_id"] or Path(row["normalized_planetscope_path"]).stem
+            identifier = _safe_sample_identifier(
+                row["planetscope_id"] or Path(row["normalized_planetscope_path"]).stem
+            )
             image_target = destination_path / "images" / split / f"{identifier}.tif"
             mask_target = destination_path / "labels" / split / f"{identifier}.tif"
             image_target.parent.mkdir(parents=True, exist_ok=True)

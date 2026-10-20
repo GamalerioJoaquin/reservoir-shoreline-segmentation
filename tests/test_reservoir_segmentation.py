@@ -3,6 +3,7 @@ import zipfile
 from pathlib import Path
 
 import numpy as np
+import pytest
 import tifffile
 
 from reservoir_segmentation.boundaries import (
@@ -110,3 +111,17 @@ def test_riverscope_split_and_sample_from_zip(tmp_path: Path):
     assert sample[0]["planetscope_id"] == "tile-1"
     assert sample[0]["image_path"].is_file()
     assert sample[0]["mask_path"].is_file()
+
+
+def test_materialize_riverscope_sample_rejects_unsafe_identifier(tmp_path: Path):
+    archive_path = tmp_path / "unsafe.zip"
+    csv_text = (
+        "reach_id,mid_lat,mid_lon,planetscope_id,normalized_planetscope_path,label_path\n"
+        "7,-34.6,-58.4,../../../outside,PlanetScope/input/train/image.tif,"
+        "PlanetScope/label/train/mask.tif\n"
+    )
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("RiverScope/train.csv", csv_text)
+
+    with pytest.raises(ValueError, match="Unsafe PlanetScope identifier"):
+        materialize_riverscope_sample(archive_path, tmp_path / "sample", count=1)

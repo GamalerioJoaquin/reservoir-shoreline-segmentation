@@ -16,3 +16,5 @@ All notable changes to this repository are documented here.
   terms.
 - Declared the notebook runtime as an installable optional dependency set and
   documented use of the repository's existing `.venv` environment.
+- Rejected unsafe tile identifiers before materializing sample files so output
+  paths cannot escape the selected destination.
