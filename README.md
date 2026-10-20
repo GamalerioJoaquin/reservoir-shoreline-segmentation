@@ -78,10 +78,9 @@ The repository uses its existing `.venv` environment for development and the
 notebook. Install the declared notebook and development extras into that
 environment; do not create a parallel environment.
 
-From Git Bash:
+From the repository root in Git Bash:
 
 ~~~
-cd /c/Users/joaco/Projects/reservoir-shoreline-segmentation
 .venv/Scripts/python.exe -m pip install --upgrade pip
 .venv/Scripts/python.exe -m pip install -e ".[notebooks,dev]"
 .venv/Scripts/python.exe -m ipykernel install --user --name reservoir-shoreline-segmentation --display-name "Python (Reservoir Shoreline Segmentation)"
@@ -111,14 +110,14 @@ finally `data/raw/RiverScope.zip`. Keep downloaded data outside Git; the
 repository ignores `data/raw/`, `data/processed/`, and archive files.
 
 ~~~
-export RIVERSCOPE_DATA=/d/datasets/riverscope
+export RIVERSCOPE_DATA=./data/raw/riverscope
 jupyter notebook notebooks/01_dataset_exploration.ipynb
 ~~~
 
 PowerShell equivalent:
 
 ~~~powershell
-$env:RIVERSCOPE_DATA = "C:\datasets\riverscope"
+$env:RIVERSCOPE_DATA = ".\data\raw\riverscope"
 ~~~
 
 ## Run tests and notebook
