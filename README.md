@@ -3,6 +3,35 @@
 Exploration and reproducible quality control for water segmentation and
 shoreline analysis using the public RiverScope / PlanetScope dataset.
 
+> **Work in progress.** This repository is under active development. Its
+> interfaces, analyses, and documented next steps may evolve as the dataset is
+> examined and the segmentation workflow is validated.
+
+## Scope and objectives
+
+This project develops a reproducible foundation for segmenting reservoir and
+river shorelines from PlanetScope imagery. Its immediate scope is data
+acquisition, inspection, and quality control; it is not yet a claim of a
+validated production model or of final scientific results.
+
+The work aims to:
+
+- preserve the published RiverScope data and geographic split definitions;
+- make image, mask, metadata, and shoreline-quality checks repeatable;
+- identify label, registration, cloud, nodata, and acquisition artifacts
+  before training; and
+- provide reusable components for later experiments, evaluation, and
+  shoreline-oriented model development.
+
+## Current status and active development
+
+The current implementation provides a verified acquisition path, a notebook
+for visual and quantitative quality control, and reusable utilities covered by
+synthetic tests. The next active steps are to run the inspection workflow on
+the complete downloaded dataset, record the resulting data-quality findings,
+and establish training and evaluation baselines that preserve the published
+geographic partitions.
+
 ## What is included
 
 - `notebooks/01_dataset_exploration.ipynb` loads official RiverScope split CSVs,
