@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Local environments
+.venv/
+.venv-*/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Dataset files are intentionally kept outside version control.
+data/raw/
+data/processed/
+*.zip
+*.7z
+*.tar
+*.tar.gz
+
+# Generated exploration outputs
+reports/figures/
+reports/tables/
+data/processed/riverscope_quality_review.csv
+*.html
+*.pdf
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
