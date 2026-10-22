@@ -125,10 +125,27 @@ def _normalise_member(path: str | os.PathLike[str]) -> str:
     return str(path).replace("\\", "/").lstrip("/").removeprefix("./")
 
 
+def _safe_riverscope_reference(value: str | os.PathLike[str]) -> str:
+    """Return a normalized archive reference that cannot traverse directories."""
+
+    raw_reference = str(value).replace("\\", "/")
+    reference = _normalise_member(value)
+    path = Path(reference)
+    if (
+        not reference
+        or raw_reference.startswith("/")
+        or path.is_absolute()
+        or path.drive
+        or ".." in path.parts
+    ):
+        raise ValueError(f"Unsafe RiverScope path: {value!r}")
+    return reference
+
+
 def resolve_riverscope_member(reference: str, members: list[str]) -> str:
     """Resolve a CSV path against archive members, tolerating a root prefix."""
 
-    normalised = _normalise_member(reference)
+    normalised = _safe_riverscope_reference(reference)
     candidates = [normalised]
     if normalised.startswith("RiverScope/"):
         candidates.append(normalised.removeprefix("RiverScope/"))
@@ -144,7 +161,7 @@ def resolve_riverscope_member(reference: str, members: list[str]) -> str:
 
 
 def _find_local_riverscope_file(root: Path, reference: str) -> Path:
-    normalised = Path(_normalise_member(reference))
+    normalised = Path(_safe_riverscope_reference(reference))
     candidates = [root / normalised]
     if normalised.parts and normalised.parts[0].lower() == "riverscope":
         candidates.append(root / Path(*normalised.parts[1:]))
@@ -301,32 +318,22 @@ def find_riverscope_all_zero_images(
     return candidates
 
 
-def materialize_riverscope_sample(
+def materialize_riverscope_rows(
     source: str | os.PathLike[str],
     destination: str | os.PathLike[str],
+    rows: Iterable[dict[str, str]],
     *,
     split: str = "train",
-    count: int = 6,
-    seed: int = 2026,
-    excluded_image_paths: Collection[str] = (),
 ) -> list[dict[str, Any]]:
-    """Copy a reproducible sample of paired PlanetScope tiles and labels.
+    """Copy explicitly selected paired PlanetScope tiles and labels.
 
     The returned rows retain every CSV field and add ``image_path`` and
     ``mask_path`` pointing to the materialized files. With a ZIP source only
-    the selected pairs are extracted; the full archive remains untouched.
+    the selected pairs are extracted; the full archive remains untouched. The
+    image filename is derived from the published normalized path so different
+    crops from the same PlanetScope scene never overwrite each other.
     """
 
-    rows = filter_riverscope_rows(
-        read_riverscope_split(source, split), excluded_image_paths
-    )
-    if count < 1:
-        raise ValueError("count must be positive")
-    if not rows:
-        raise ValueError("No eligible rows remain after quality exclusions")
-    selected = rows.copy()
-    random.Random(seed).shuffle(selected)
-    selected = selected[: min(count, len(selected))]
     source_path = Path(source)
     destination_path = Path(destination)
     results: list[dict[str, Any]] = []
@@ -338,16 +345,17 @@ def materialize_riverscope_sample(
             if zip_context is not None
             else []
         )
-        for row in selected:
+        for row in rows:
+            image_ref = _safe_riverscope_reference(row["normalized_planetscope_path"])
+            mask_ref = _safe_riverscope_reference(row["label_path"])
+            path_digest = hashlib.sha256(image_ref.encode("utf-8")).hexdigest()[:12]
             identifier = _safe_planetscope_identifier(
-                row["planetscope_id"] or Path(row["normalized_planetscope_path"]).stem
+                f"{Path(image_ref).stem}-{path_digest}"
             )
             image_target = destination_path / "images" / split / f"{identifier}.tif"
             mask_target = destination_path / "labels" / split / f"{identifier}.tif"
             image_target.parent.mkdir(parents=True, exist_ok=True)
             mask_target.parent.mkdir(parents=True, exist_ok=True)
-            image_ref = row["normalized_planetscope_path"]
-            mask_ref = row["label_path"]
             if zip_context is not None:
                 image_member = resolve_riverscope_member(image_ref, members)
                 mask_member = resolve_riverscope_member(mask_ref, members)
@@ -371,6 +379,30 @@ def materialize_riverscope_sample(
         if zip_context is not None:
             zip_context.close()
     return results
+
+
+def materialize_riverscope_sample(
+    source: str | os.PathLike[str],
+    destination: str | os.PathLike[str],
+    *,
+    split: str = "train",
+    count: int = 6,
+    seed: int = 2026,
+    excluded_image_paths: Collection[str] = (),
+) -> list[dict[str, Any]]:
+    """Copy a reproducible sample of paired PlanetScope tiles and labels."""
+
+    rows = filter_riverscope_rows(
+        read_riverscope_split(source, split), excluded_image_paths
+    )
+    if count < 1:
+        raise ValueError("count must be positive")
+    if not rows:
+        raise ValueError("No eligible rows remain after quality exclusions")
+    selected = rows.copy()
+    random.Random(seed).shuffle(selected)
+    selected = selected[: min(count, len(selected))]
+    return materialize_riverscope_rows(source, destination, selected, split=split)
 
 
 def locate_dataset_root(

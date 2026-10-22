@@ -18,6 +18,7 @@ from reservoir_segmentation.dataset import (
     find_riverscope_all_zero_images,
     load_quality_exclusions,
     locate_dataset_root,
+    materialize_riverscope_rows,
     materialize_riverscope_sample,
     read_riverscope_split,
 )
@@ -124,18 +125,48 @@ def test_riverscope_split_and_sample_from_zip(tmp_path: Path):
     assert [row["planetscope_id"] for row in zero_images] == ["tile-1"]
 
 
-def test_materialize_riverscope_sample_rejects_unsafe_identifier(tmp_path: Path):
+def test_materialize_riverscope_sample_rejects_unsafe_reference(tmp_path: Path):
     archive_path = tmp_path / "unsafe.zip"
     csv_text = (
         "reach_id,mid_lat,mid_lon,planetscope_id,normalized_planetscope_path,label_path\n"
-        "7,-34.6,-58.4,../../../outside,PlanetScope/input/train/image.tif,"
+        "7,-34.6,-58.4,tile-1,../../../outside.tif,"
         "PlanetScope/label/train/mask.tif\n"
     )
     with zipfile.ZipFile(archive_path, "w") as archive:
         archive.writestr("RiverScope/train.csv", csv_text)
 
-    with pytest.raises(ValueError, match="Unsafe PlanetScope identifier"):
+    with pytest.raises(ValueError, match="Unsafe RiverScope path"):
         materialize_riverscope_sample(archive_path, tmp_path / "sample", count=1)
+
+
+def test_materialize_riverscope_rows_uses_unique_tile_paths(tmp_path: Path):
+    image_path = tmp_path / "image.tif"
+    mask_path = tmp_path / "mask.tif"
+    tifffile.imwrite(image_path, np.zeros((4, 5, 4), dtype=np.uint16))
+    tifffile.imwrite(mask_path, np.ones((4, 5), dtype=np.uint8))
+    archive_path = tmp_path / "RiverScope.zip"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        for suffix in ("crop-a", "crop-b"):
+            archive.write(image_path, f"RiverScope/PlanetScope/input/train/{suffix}.tif")
+            archive.write(mask_path, f"RiverScope/PlanetScope/label/train/{suffix}.tif")
+
+    rows = [
+        {
+            "planetscope_id": "shared-scene",
+            "normalized_planetscope_path": f"PlanetScope/input/train/{suffix}.tif",
+            "label_path": f"PlanetScope/label/train/{suffix}.tif",
+        }
+        for suffix in ("crop-a", "crop-b")
+    ]
+
+    materialized = materialize_riverscope_rows(archive_path, tmp_path / "sample", rows)
+
+    image_names = [row["image_path"].name for row in materialized]
+
+    assert image_names[0].startswith("crop-a-")
+    assert image_names[1].startswith("crop-b-")
+    assert len(set(image_names)) == 2
+    assert all(row["image_path"].is_file() for row in materialized)
 
 
 def test_quality_exclusion_manifest_filters_rows(tmp_path: Path):

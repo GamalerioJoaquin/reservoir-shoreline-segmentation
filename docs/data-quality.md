@@ -12,15 +12,15 @@ evaluation manifests.
 [`configs/riverscope_quality_exclusions.csv`](../configs/riverscope_quality_exclusions.csv)
 is the source of truth for explicit exclusions. Each entry records the exact
 published `normalized_planetscope_path`, an objective reason, a decision,
-scope, and evidence. A `planetscope_id` may describe more than one cropped
-tile, so it is not precise enough for a tile-level exclusion.
+scope, evidence, and the audited `nonzero_values` count. A `planetscope_id`
+may describe more than one cropped tile, so it is not precise enough for a
+tile-level exclusion.
 
-The current manifest excludes the `normalized_planetscope_path` for the tile
-whose `planetscope_id` is `20240627_033130_05_2478_3B_AnalyticMS_SR_clip`, for
-`all_zero_imagery`. Inspection found that every pixel in all four image bands
-is zero, even though the GeoTIFF reports valid image pixels and no image nodata
-value. Its label is also entirely background, but that label condition is not
-the reason for the decision.
+The current manifest excludes 98 tiles with the `all_zero_imagery` decision:
+71 from `train`, 16 from `valid`, and 11 from `test`. The automated audit found
+that every image-band value is finite and zero. This criterion concerns the
+imagery only; a label that is entirely background is not, by itself, a reason
+for exclusion.
 
 ## Rules
 
@@ -50,5 +50,6 @@ training_rows = filter_riverscope_rows(official_rows, exclusions)
 
 The notebook applies the same manifest when materializing its sample, so an
 excluded tile is not selected for visual review or future derived workflows.
-It also provides an all-zero-image audit that creates a candidate table before
-any new manifest entry is accepted.
+It also provides a numerical non-zero-value check that reports tiles whose
+image-band values are entirely finite zeros and shows whether each one is in
+the manifest.

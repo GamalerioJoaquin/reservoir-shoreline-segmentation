@@ -20,3 +20,8 @@ All notable changes to this repository are documented here.
   paths cannot escape the selected destination.
 - Added a versioned RiverScope quality-exclusion manifest and reusable
   filtering utilities for derived samples, training, and evaluation workflows.
+- Materialize selected tiles with unique names derived from their published
+  normalized paths, preventing collisions between crops from one scene.
+- Expanded the quality manifest to the 98 exact tiles identified by the
+  all-zero-image audit across the published splits.
+- Recorded the audited `nonzero_values` count for each excluded tile.
