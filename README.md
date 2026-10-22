@@ -43,6 +43,14 @@ geographic partitions.
   reading TIFF metadata, inspecting boundaries, and computing distance maps.
 - `tests/` covers the reusable utilities with synthetic inputs.
 
+## Data-quality decisions
+
+The official RiverScope archive and split CSVs are never modified. Explicit
+quality exclusions for derived training and evaluation workflows are recorded
+in [`configs/riverscope_quality_exclusions.csv`](configs/riverscope_quality_exclusions.csv).
+See [docs/data-quality.md](docs/data-quality.md) for the policy, evidence, and
+reproducible filtering procedure.
+
 The notebook preserves the published multiclase labels: `0 = background`,
 `1 = river water`, and `2 = other water`. Its binary inspection view treats
 labels `1` and `2` as water, but does not overwrite the original mask.

@@ -1,0 +1,2 @@
+normalized_planetscope_path,reason,decision,scope,evidence
+PlanetScope/input/train/20240627_033130_05_2478_3B_AnalyticMS_SR_clip-tile_485_985-821-1321_mid.tif,all_zero_imagery,exclude,derived_training_and_evaluation,"All four PlanetScope bands are zero for every pixel; the source GeoTIFF reports valid pixels and no image nodata."

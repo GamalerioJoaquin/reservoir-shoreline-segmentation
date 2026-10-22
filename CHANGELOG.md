@@ -18,3 +18,5 @@ All notable changes to this repository are documented here.
   documented use of the repository's existing `.venv` environment.
 - Rejected unsafe tile identifiers before materializing sample files so output
   paths cannot escape the selected destination.
+- Added a versioned RiverScope quality-exclusion manifest and reusable
+  filtering utilities for derived samples, training, and evaluation workflows.

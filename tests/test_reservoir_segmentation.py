@@ -14,6 +14,9 @@ from reservoir_segmentation.boundaries import (
 from reservoir_segmentation.dataset import (
     _download_progress_message,
     discover_pairs,
+    filter_riverscope_rows,
+    find_riverscope_all_zero_images,
+    load_quality_exclusions,
     locate_dataset_root,
     materialize_riverscope_sample,
     read_riverscope_split,
@@ -112,11 +115,13 @@ def test_riverscope_split_and_sample_from_zip(tmp_path: Path):
 
     rows = read_riverscope_split(archive_path, "train")
     sample = materialize_riverscope_sample(archive_path, tmp_path / "sample", count=1)
+    zero_images = find_riverscope_all_zero_images(archive_path, "train", progress_every=0)
 
     assert rows[0]["reach_id"] == "7"
     assert sample[0]["planetscope_id"] == "tile-1"
     assert sample[0]["image_path"].is_file()
     assert sample[0]["mask_path"].is_file()
+    assert [row["planetscope_id"] for row in zero_images] == ["tile-1"]
 
 
 def test_materialize_riverscope_sample_rejects_unsafe_identifier(tmp_path: Path):
@@ -131,3 +136,24 @@ def test_materialize_riverscope_sample_rejects_unsafe_identifier(tmp_path: Path)
 
     with pytest.raises(ValueError, match="Unsafe PlanetScope identifier"):
         materialize_riverscope_sample(archive_path, tmp_path / "sample", count=1)
+
+
+def test_quality_exclusion_manifest_filters_rows(tmp_path: Path):
+    manifest = tmp_path / "quality_exclusions.csv"
+    manifest.write_text(
+        "normalized_planetscope_path,reason,decision\n"
+        "PlanetScope/input/train/bad-tile.tif,all_zero_imagery,exclude\n"
+        "PlanetScope/input/train/review-tile.tif,manual_review,retain\n",
+        encoding="utf-8",
+    )
+    rows = [
+        {"normalized_planetscope_path": "PlanetScope/input/train/bad-tile.tif"},
+        {"normalized_planetscope_path": "PlanetScope/input/train/good-tile.tif"},
+    ]
+
+    exclusions = load_quality_exclusions(manifest)
+
+    assert exclusions == {"PlanetScope/input/train/bad-tile.tif": "all_zero_imagery"}
+    assert filter_riverscope_rows(rows, exclusions) == [
+        {"normalized_planetscope_path": "PlanetScope/input/train/good-tile.tif"}
+    ]

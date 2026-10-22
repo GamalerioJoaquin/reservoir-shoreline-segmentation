@@ -10,6 +10,7 @@ import random
 import shutil
 import urllib.request
 import zipfile
+from collections.abc import Collection, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -28,6 +29,7 @@ RIVERSCOPE_REQUIRED_COLUMNS = (
     "normalized_planetscope_path",
     "label_path",
 )
+QUALITY_EXCLUSION_REQUIRED_COLUMNS = ("normalized_planetscope_path", "reason", "decision")
 IMAGE_TOKENS = {"image", "images", "img", "rgb", "input", "inputs"}
 MASK_TOKENS = {"label", "labels", "mask", "masks", "annotation", "annotations", "gt"}
 TIFF_SUFFIXES = {".tif", ".tiff"}
@@ -155,8 +157,8 @@ def _find_local_riverscope_file(root: Path, reference: str) -> Path:
     return min(matches, key=lambda path: len(path.parts))
 
 
-def _safe_sample_identifier(value: str) -> str:
-    """Return an identifier that is safe to use as a generated filename."""
+def _safe_planetscope_identifier(value: str) -> str:
+    """Return an identifier that is safe to use in a generated filename or manifest."""
 
     identifier = value.strip()
     forbidden_characters = '<>:"/\\|?*'
@@ -166,7 +168,7 @@ def _safe_sample_identifier(value: str) -> str:
         or any(character in identifier for character in forbidden_characters)
         or Path(identifier).name != identifier
     ):
-        raise ValueError(f"Unsafe PlanetScope identifier for sample output: {value!r}")
+        raise ValueError(f"Unsafe PlanetScope identifier: {value!r}")
     return identifier
 
 
@@ -200,6 +202,105 @@ def read_riverscope_split(
     return rows
 
 
+def load_quality_exclusions(path: str | os.PathLike[str]) -> dict[str, str]:
+    """Load the versioned tile-exclusion manifest as ``{image_path: reason}``.
+
+    Only rows whose ``decision`` is ``exclude`` are returned. The official
+    RiverScope CSVs and archive are not changed by this function.
+    """
+
+    manifest_path = Path(path)
+    with manifest_path.open(newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle)
+        fieldnames = set(reader.fieldnames or ())
+        missing = set(QUALITY_EXCLUSION_REQUIRED_COLUMNS) - fieldnames
+        if missing:
+            raise ValueError(
+                f"Quality-exclusion manifest is missing columns: {sorted(missing)}"
+            )
+        exclusions: dict[str, str] = {}
+        for row in reader:
+            if (row.get("decision") or "").strip().lower() != "exclude":
+                continue
+            image_path = _normalise_member(row.get("normalized_planetscope_path") or "")
+            if not image_path or image_path in {".", ".."} or ".." in Path(image_path).parts:
+                raise ValueError(f"Unsafe normalized PlanetScope path: {image_path!r}")
+            reason = (row.get("reason") or "").strip()
+            if not reason:
+                raise ValueError(f"Quality-exclusion manifest has no reason for {image_path}")
+            if image_path in exclusions:
+                raise ValueError(f"Duplicate quality exclusion for {image_path}")
+            exclusions[image_path] = reason
+    return exclusions
+
+
+def filter_riverscope_rows(
+    rows: Iterable[dict[str, str]],
+    excluded_image_paths: Collection[str],
+) -> list[dict[str, str]]:
+    """Return copies of rows not listed in a quality-exclusion manifest."""
+
+    excluded_paths = {_normalise_member(path) for path in excluded_image_paths}
+    return [
+        dict(row)
+        for row in rows
+        if _normalise_member(row["normalized_planetscope_path"]) not in excluded_paths
+    ]
+
+
+def find_riverscope_all_zero_images(
+    source: str | os.PathLike[str],
+    split: str,
+    *,
+    progress_every: int = 50,
+) -> list[dict[str, str | int]]:
+    """Find valid-valued RiverScope images whose every band value is zero.
+
+    The source may be an extracted dataset folder or the official ZIP. This
+    function reports candidates; it never changes the source data or split
+    CSVs. A candidate must be reviewed and recorded in the versioned quality
+    manifest before derived workflows exclude it.
+    """
+
+    if progress_every < 0:
+        raise ValueError("progress_every must not be negative")
+    rows = read_riverscope_split(source, split)
+    source_path = Path(source)
+    candidates: list[dict[str, str | int]] = []
+    archive = zipfile.ZipFile(source_path) if source_path.is_file() else None
+    try:
+        members = (
+            [_normalise_member(name) for name in archive.namelist()] if archive is not None else []
+        )
+        for index, row in enumerate(rows, start=1):
+            if progress_every and (index == 1 or index % progress_every == 0):
+                print(f"Scanning {split}: {index}/{len(rows)}")
+            image_reference = row["normalized_planetscope_path"]
+            if archive is not None:
+                image_member = resolve_riverscope_member(image_reference, members)
+                with archive.open(image_member) as handle, tifffile.TiffFile(handle) as tif:
+                    image = tif.asarray()
+            else:
+                local_image_path = _find_local_riverscope_file(source_path, image_reference)
+                with tifffile.TiffFile(local_image_path) as tif:
+                    image = tif.asarray()
+            total_values = int(image.size)
+            finite_values = int(np.isfinite(image).sum())
+            nonzero_values = int(np.count_nonzero(image))
+            if finite_values == total_values and nonzero_values == 0:
+                candidate = dict(row)
+                candidate.update(
+                    total_values=total_values,
+                    finite_values=finite_values,
+                    nonzero_values=nonzero_values,
+                )
+                candidates.append(candidate)
+    finally:
+        if archive is not None:
+            archive.close()
+    return candidates
+
+
 def materialize_riverscope_sample(
     source: str | os.PathLike[str],
     destination: str | os.PathLike[str],
@@ -207,6 +308,7 @@ def materialize_riverscope_sample(
     split: str = "train",
     count: int = 6,
     seed: int = 2026,
+    excluded_image_paths: Collection[str] = (),
 ) -> list[dict[str, Any]]:
     """Copy a reproducible sample of paired PlanetScope tiles and labels.
 
@@ -215,9 +317,13 @@ def materialize_riverscope_sample(
     the selected pairs are extracted; the full archive remains untouched.
     """
 
-    rows = read_riverscope_split(source, split)
+    rows = filter_riverscope_rows(
+        read_riverscope_split(source, split), excluded_image_paths
+    )
     if count < 1:
         raise ValueError("count must be positive")
+    if not rows:
+        raise ValueError("No eligible rows remain after quality exclusions")
     selected = rows.copy()
     random.Random(seed).shuffle(selected)
     selected = selected[: min(count, len(selected))]
@@ -233,7 +339,7 @@ def materialize_riverscope_sample(
             else []
         )
         for row in selected:
-            identifier = _safe_sample_identifier(
+            identifier = _safe_planetscope_identifier(
                 row["planetscope_id"] or Path(row["normalized_planetscope_path"]).stem
             )
             image_target = destination_path / "images" / split / f"{identifier}.tif"
