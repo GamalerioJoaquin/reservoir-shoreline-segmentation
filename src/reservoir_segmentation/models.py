@@ -29,8 +29,8 @@ class UNet(nn.Module):
     transposed convolutions with skip connections. Output padding is removed,
     so both logits and probabilities retain the physical 500x500 tile extent.
 
-    ``forward`` returns per-class probabilities after softmax. Use
-    :meth:`forward_logits` with ``torch.nn.CrossEntropyLoss`` during training.
+    ``forward`` returns unnormalised logits for use with
+    ``torch.nn.CrossEntropyLoss``. Use :meth:`predict_proba` for inference.
     """
 
     input_size = (500, 500)
@@ -86,7 +86,7 @@ class UNet(nn.Module):
 
         self.output_layer = nn.Conv2d(features[0], self.num_classes, kernel_size=1)
 
-    def forward_logits(self, images: Tensor) -> Tensor:
+    def forward(self, images: Tensor) -> Tensor:
         """Return two unnormalised 500x500 class-score maps for each image."""
 
         self._validate_input(images)
@@ -112,10 +112,16 @@ class UNet(nn.Module):
         padded_logits = self.output_layer(features)
         return self._remove_padding(padded_logits)
 
-    def forward(self, images: Tensor) -> Tensor:
+    def forward_logits(self, images: Tensor) -> Tensor:
+        """Return logits; retained as an explicit alias for :meth:`forward`."""
+
+        return self.forward(images)
+
+    @torch.no_grad()
+    def predict_proba(self, images: Tensor) -> Tensor:
         """Return class-0 and class-1 probabilities for each 500x500 pixel."""
 
-        return torch.softmax(self.forward_logits(images), dim=1)
+        return torch.softmax(self.forward(images), dim=1)
 
     def _validate_input(self, images: Tensor) -> None:
         if images.ndim != 4:

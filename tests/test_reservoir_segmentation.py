@@ -81,20 +81,24 @@ def test_visualization_crops_and_overlays():
     assert output[0, 0, 0] > 0
 
 
-def test_unet_returns_two_probability_maps_at_original_tile_size():
+def test_unet_returns_logits_and_probability_maps_at_original_tile_size():
     torch = pytest.importorskip("torch")
     from reservoir_segmentation.models import UNet, class_labels, expected_output_shape
 
     model = UNet(in_channels=4, base_channels=2)
-    images = torch.zeros((1, 4, 500, 500))
+    images = torch.zeros((1, 4, 500, 500), requires_grad=True)
+    masks = torch.zeros((1, 500, 500), dtype=torch.long)
 
-    logits = model.forward_logits(images)
-    probabilities = model(images)
+    logits = model(images)
+    probabilities = model.predict_proba(images)
 
     assert tuple(logits.shape) == (1, 2, 500, 500)
     assert tuple(probabilities.shape) == tuple(expected_output_shape(batch_size=1))
     assert torch.allclose(probabilities.sum(dim=1), torch.ones((1, 500, 500)))
     assert tuple(class_labels(probabilities).shape) == (1, 500, 500)
+    assert torch.nn.CrossEntropyLoss()(logits, masks).ndim == 0
+    assert logits.requires_grad
+    assert not probabilities.requires_grad
 
 
 def test_unet_rejects_non_riverscope_tile_shapes():
