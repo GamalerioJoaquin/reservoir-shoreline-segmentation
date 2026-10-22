@@ -81,6 +81,32 @@ def test_visualization_crops_and_overlays():
     assert output[0, 0, 0] > 0
 
 
+def test_unet_returns_two_probability_maps_at_original_tile_size():
+    torch = pytest.importorskip("torch")
+    from reservoir_segmentation.models import UNet, class_labels, expected_output_shape
+
+    model = UNet(in_channels=4, base_channels=2)
+    images = torch.zeros((1, 4, 500, 500))
+
+    logits = model.forward_logits(images)
+    probabilities = model(images)
+
+    assert tuple(logits.shape) == (1, 2, 500, 500)
+    assert tuple(probabilities.shape) == tuple(expected_output_shape(batch_size=1))
+    assert torch.allclose(probabilities.sum(dim=1), torch.ones((1, 500, 500)))
+    assert tuple(class_labels(probabilities).shape) == (1, 500, 500)
+
+
+def test_unet_rejects_non_riverscope_tile_shapes():
+    torch = pytest.importorskip("torch")
+    from reservoir_segmentation.models import UNet
+
+    model = UNet(in_channels=4, base_channels=2)
+
+    with pytest.raises(ValueError, match="Expected 500x500 inputs"):
+        model(torch.zeros((1, 4, 512, 512)))
+
+
 def test_riverscope_split_and_sample_from_zip(tmp_path: Path):
     image_path = tmp_path / "image.tif"
     mask_path = tmp_path / "mask.tif"
