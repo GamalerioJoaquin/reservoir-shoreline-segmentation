@@ -8,6 +8,8 @@ All notable changes to this repository are documented here.
   tiles. It pads inputs to 512x512, uses transposed convolutions in the
   decoder, returns cropped logits for Cross-Entropy training, and provides a
   separate inference-only probability interface.
+- Refactored the U-Net into reusable encoder and decoder blocks, independent
+  padding and prediction utilities, and dedicated unit and integration tests.
 - Added an explicit, MD5-verified downloader for the official RiverScope ZIP.
 - Added support for reading RiverScope split CSVs and extracting reproducible
   PlanetScope image/label samples from either a ZIP or an extracted folder.
