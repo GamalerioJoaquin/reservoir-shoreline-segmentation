@@ -22,6 +22,21 @@ that every image-band value is finite and zero. This criterion concerns the
 imagery only; a label that is entirely background is not, by itself, a reason
 for exclusion.
 
+## Numerical zero-value criterion
+
+The non-zero-value check reads the complete image array for each tile and
+records three quantities:
+
+- `total_values`: number of values across all PlanetScope bands and pixels;
+- `finite_values`: number of those values that are finite; and
+- `nonzero_values`: number of values that differ from zero.
+
+The `all_zero_imagery` criterion is satisfied only when
+`finite_values == total_values` and `nonzero_values == 0`. It is therefore a
+numeric data condition, not a display-dependent judgement. The notebook shows
+the matching tile paths and whether each path is already present in the
+manifest; it does not modify the official source files.
+
 ## Rules
 
 - Never delete, overwrite, or edit files in the official archive.
@@ -33,6 +48,8 @@ for exclusion.
   rows.
 - Keep exclusions visible in reports and state their count when publishing
   training or evaluation results.
+- Filter by the exact `normalized_planetscope_path` before materializing a
+  derived sample, gallery page, training manifest, or evaluation manifest.
 
 ## Using the manifest
 

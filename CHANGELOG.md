@@ -25,3 +25,5 @@ All notable changes to this repository are documented here.
 - Expanded the quality manifest to the 98 exact tiles identified by the
   all-zero-image audit across the published splits.
 - Recorded the audited `nonzero_values` count for each excluded tile.
+- Defined the numerical all-zero-image criterion and documented where the
+  versioned exclusion manifest is applied.

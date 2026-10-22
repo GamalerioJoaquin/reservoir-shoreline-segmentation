@@ -26,18 +26,19 @@ The work aims to:
 ## Current status and active development
 
 The current implementation provides a verified acquisition path, a notebook
-for visual and quantitative quality control, and reusable utilities covered by
-synthetic tests. The next active steps are to run the inspection workflow on
-the complete downloaded dataset, record the resulting data-quality findings,
-and establish training and evaluation baselines that preserve the published
-geographic partitions.
+for visual and quantitative quality control, a numerical zero-value check, and
+reusable utilities covered by synthetic tests. The current exclusion manifest
+records the 98 published tiles whose image values are entirely zero. The next
+active steps are to establish training and evaluation baselines that preserve
+the published geographic partitions and apply the documented exclusions.
 
 ## What is included
 
 - `notebooks/01_dataset_exploration.ipynb` loads official RiverScope split CSVs,
   materializes a reproducible sample, checks GeoTIFF metadata and alignment,
   visualizes RGB/NIR compositions and labels, inspects coast boundaries and
-  distance-based weights, and audits split identifiers.
+  distance-based weights, audits split identifiers, performs the numerical
+  zero-value check, and provides an on-demand paginated gallery.
 - `src/reservoir_segmentation/` contains reusable utilities for downloading
   and verifying the official archive, reading split CSVs, extracting samples,
   reading TIFF metadata, inspecting boundaries, and computing distance maps.
@@ -50,6 +51,12 @@ quality exclusions for derived training and evaluation workflows are recorded
 in [`configs/riverscope_quality_exclusions.csv`](configs/riverscope_quality_exclusions.csv).
 See [docs/data-quality.md](docs/data-quality.md) for the policy, evidence, and
 reproducible filtering procedure.
+
+The current manifest contains 98 exact tile-path exclusions for
+`all_zero_imagery` (71 training, 16 validation, and 11 test tiles). Each row
+records `nonzero_values = 0`; derived samples, the paginated gallery, and
+future training or evaluation manifests must apply this file before selecting
+tiles.
 
 The notebook preserves the published multiclase labels: `0 = background`,
 `1 = river water`, and `2 = other water`. Its binary inspection view treats
