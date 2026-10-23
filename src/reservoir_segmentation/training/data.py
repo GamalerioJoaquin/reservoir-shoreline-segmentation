@@ -124,6 +124,20 @@ def _stable_tile_id(row: Mapping[str, str]) -> str:
     return hashlib.sha256(reference.encode("utf-8")).hexdigest()[:12]
 
 
+def _owned_tensor(array: np.ndarray, *, dtype: np.dtype[Any]) -> torch.Tensor:
+    """Create a contiguous tensor with resizable, PyTorch-owned storage.
+
+    A tensor returned directly by ``torch.from_numpy`` shares NumPy storage.
+    On Windows, the default multi-worker DataLoader collate path uses shared
+    storage and can reject those non-resizable tensors. Cloning after the
+    conversion preserves the value and dtype while making every sample safe to
+    batch in spawned workers.
+    """
+
+    contiguous = np.ascontiguousarray(np.asarray(array, dtype=dtype))
+    return torch.from_numpy(contiguous).clone()
+
+
 class RiverScopeSegmentationDataset(Dataset[dict[str, Any]]):
     """Read one fixed official split plus its aligned derived geometry maps.
 
@@ -181,13 +195,11 @@ class RiverScopeSegmentationDataset(Dataset[dict[str, Any]]):
             std = np.asarray(self.statistics.std, dtype=np.float32)[:, None, None]
             image = (image - mean) / std
         return {
-            "image": torch.from_numpy(np.ascontiguousarray(image)),
-            "target": torch.from_numpy(np.asarray(target, dtype=np.int64)),
-            "valid_mask": torch.from_numpy(np.asarray(valid_mask, dtype=bool)),
-            "boundary": torch.from_numpy(np.asarray(boundary, dtype=bool)),
-            "distance_squared": torch.from_numpy(
-                np.asarray(distance_squared, dtype=np.float32)
-            ),
+            "image": _owned_tensor(image, dtype=np.float32),
+            "target": _owned_tensor(target, dtype=np.int64),
+            "valid_mask": _owned_tensor(valid_mask, dtype=np.bool_),
+            "boundary": _owned_tensor(boundary, dtype=np.bool_),
+            "distance_squared": _owned_tensor(distance_squared, dtype=np.float32),
             "tile_id": _stable_tile_id(row),
             "image_path": row["normalized_planetscope_path"],
             "geographic_group": row["reach_id"],
