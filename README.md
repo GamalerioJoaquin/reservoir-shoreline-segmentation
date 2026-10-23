@@ -30,12 +30,42 @@ control, versioned geometry, a modular four-channel U-Net, and a reproducible
 train-validation-test pipeline with resumable experiment artifacts. The
 current exclusion manifest records the 98 published tiles whose image values
 are entirely zero. Training and selection preserve the published geographic
-partitions; test remains locked until a final configuration is chosen.
+partitions; test remains locked throughout those stages and is only evaluated
+after a validation-selected checkpoint has been frozen.
 
 The repository now also provides a versioned geometry-processing script that
 derives binary labels, explicit validity maps, thick 8-neighbour shorelines,
 and reusable squared distance maps without modifying the original data. See
 [the data-processing guide](docs/data-processing.md).
+
+## First post-selection test result
+
+The active `training-pipeline` branch now contains its first end-to-end test
+result. It evaluates the frozen weighted cross-entropy U-Net checkpoint chosen
+on validation only; the 224 test tiles did not participate in configuration
+selection, early stopping, or checkpoint selection. This is an initial,
+reproducible result rather than a final scientific claim.
+
+| Test measure | Result |
+| --- | ---: |
+| Tiles / geographic groups / valid pixels | 224 / 46 / 55,546,991 |
+| Global masked water Dice | 0.9411 |
+| Global masked water IoU | 0.8887 |
+| Global masked accuracy | 0.9735 |
+| Boundary F1 at 2 px (geographic macro) | 0.6115 |
+| ASSD, defined cases only | 9.2904 px |
+| HD95, defined cases only | 49.2655 px |
+| Selection ASSD (geographic macro, explicit penalties) | 33.8646 px |
+
+![Representative final-test tile: RGB, reference and argmax prediction, probability, shoreline overlays, and masked errors.](docs/assets/first-test-results/test-tile-2fc339ca5c2b.png)
+
+The reported standard ASSD and HD95 omit only their mathematically undefined
+one-empty-boundary cases; they are not silently removed from the evaluation.
+There were 217 tiles with both boundaries present, two with both empty, and
+five prediction-only cases. The selection ASSD retains those five failures by
+applying the documented tile-diagonal penalty. The full historical record
+includes the frozen configuration, training curves, provenance, and metric
+conventions: [first post-selection test result](docs/history/2026-10-23-first-test-results.md).
 
 ## What is included
 
