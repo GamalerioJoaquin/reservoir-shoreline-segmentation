@@ -4,6 +4,25 @@ All notable changes to this repository are documented here.
 
 ## Unreleased
 
+- Add explicit, pinned CPU and CUDA 12.8 PyTorch runtime profiles. The CUDA
+  profile supports RTX 50-series GPUs and is now required by the documented
+  full-training and grid-search setup.
+
+- Added a reproducible RiverScope train-validation-test pipeline with
+  manifest-backed inputs, train-only valid-pixel normalization, deterministic
+  seed controls, CPU/CUDA provenance, and internal U-Net padding that never
+  exposes artificial pixels to losses or metrics.
+- Added masked CE and the documented unnormalized weighted CE, regional and
+  grouped shoreline metrics, explicit degenerate-boundary reporting, ASSD with
+  a Dice safety constraint for checkpointing, mandatory early stopping, and
+  persistent experiment/checkpoint/trial artifacts.
+- Added progressive, resumable CE and weighted-CE grid-search helpers plus
+  numbered grid-search, training, and test-visualization notebooks.
+- Added synthetic training tests for validity masks, padded model output,
+  weighted-loss normalization, shoreline edge cases, split leakage, and
+  checkpoint selection.
+- Documented the training, selection, metric, reproducibility, and test-lock
+  conventions.
 - Treat the 157 observed, undocumented RiverScope label-`3` pixels as explicit
   no-data in derived geometry. They are retained in raw labels and excluded
   from shorelines, losses, and metrics, with per-tile counts in manifests.
@@ -16,6 +35,12 @@ All notable changes to this repository are documented here.
   documentation of the shoreline, validity, cache, and overwrite conventions.
 - Added tests for diagonal water/land contacts, invalid pixels, outer-tile
   boundaries, uniform masks, label policy, and distance-map representation.
+- Added a configurable PyTorch U-Net for four-channel 500x500 PlanetScope
+  tiles. It pads inputs to 512x512, uses transposed convolutions in the
+  decoder, returns cropped logits for Cross-Entropy training, and provides a
+  separate inference-only probability interface.
+- Refactored the U-Net into reusable encoder and decoder blocks, independent
+  padding and prediction utilities, and dedicated unit and integration tests.
 - Added an explicit, MD5-verified downloader for the official RiverScope ZIP.
 - Added support for reading RiverScope split CSVs and extracting reproducible
   PlanetScope image/label samples from either a ZIP or an extracted folder.

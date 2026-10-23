@@ -25,17 +25,47 @@ The work aims to:
 
 ## Current status and active development
 
-The current implementation provides a verified acquisition path, a notebook
-for visual and quantitative quality control, a numerical zero-value check, and
-reusable utilities covered by synthetic tests. The current exclusion manifest
-records the 98 published tiles whose image values are entirely zero. The next
-active steps are to establish training and evaluation baselines that preserve
-the published geographic partitions and apply the documented exclusions.
+The current implementation provides a verified acquisition path, quality
+control, versioned geometry, a modular four-channel U-Net, and a reproducible
+train-validation-test pipeline with resumable experiment artifacts. The
+current exclusion manifest records the 98 published tiles whose image values
+are entirely zero. Training and selection preserve the published geographic
+partitions; test remains locked throughout those stages and is only evaluated
+after a validation-selected checkpoint has been frozen.
 
 The repository now also provides a versioned geometry-processing script that
 derives binary labels, explicit validity maps, thick 8-neighbour shorelines,
 and reusable squared distance maps without modifying the original data. See
 [the data-processing guide](docs/data-processing.md).
+
+## First post-selection test result
+
+The active `training-pipeline` branch now contains its first end-to-end test
+result. It evaluates the frozen weighted cross-entropy U-Net checkpoint chosen
+on validation only; the 224 test tiles did not participate in configuration
+selection, early stopping, or checkpoint selection. This is an initial,
+reproducible result rather than a final scientific claim.
+
+| Test measure | Result |
+| --- | ---: |
+| Tiles / geographic groups / valid pixels | 224 / 46 / 55,546,991 |
+| Global masked water Dice | 0.9411 |
+| Global masked water IoU | 0.8887 |
+| Global masked accuracy | 0.9735 |
+| Boundary F1 at 2 px (geographic macro) | 0.6115 |
+| ASSD, defined cases only | 9.2904 px |
+| HD95, defined cases only | 49.2655 px |
+| Selection ASSD (geographic macro, explicit penalties) | 33.8646 px |
+
+![Representative final-test tile: RGB, reference and argmax prediction, probability, shoreline overlays, and masked errors.](docs/assets/first-test-results/test-tile-2fc339ca5c2b.png)
+
+The reported standard ASSD and HD95 omit only their mathematically undefined
+one-empty-boundary cases; they are not silently removed from the evaluation.
+There were 217 tiles with both boundaries present, two with both empty, and
+five prediction-only cases. The selection ASSD retains those five failures by
+applying the documented tile-diagonal penalty. The full historical record
+includes the frozen configuration, training curves, provenance, and metric
+conventions: [first post-selection test result](docs/history/2026-10-23-first-test-results.md).
 
 ## What is included
 
@@ -52,7 +82,20 @@ and reusable squared distance maps without modifying the original data. See
 - `scripts/prepare_riverscope.py` derives geometry maps and per-split manifests
   from the RiverScope ZIP or an extracted dataset. Its output is cacheable
   across all `sigma` and `alpha` experiments.
+- `src/reservoir_segmentation/models/` provides the configurable U-Net. It
+  pads inputs internally and returns original-size logits for two-class CE.
+- `src/reservoir_segmentation/training/` provides manifest-backed datasets,
+  train-only normalization, reproducibility controls, masked losses, regional
+  and shoreline metrics, training/evaluation loops, checkpointing, and
+  resumable grid-search artifacts.
+- `notebooks/03_grid_search.ipynb`, `04_train_model.ipynb`, and
+  `05_test_visualization.ipynb` run progressive configuration search, final
+  train/validation, and strictly post-selection test evaluation.
 - `tests/` covers the reusable utilities with synthetic inputs.
+
+See [the training and evaluation guide](docs/training.md) for the split lock,
+validity policy, losses, metrics, checkpoint rule, reproducibility limits, and
+notebook workflow.
 
 ## Data-quality decisions
 
@@ -105,16 +148,32 @@ and generated data stay outside Git.
 ## Environment setup on Windows
 
 The repository uses its existing `.venv` environment for development and the
-notebook. Install the declared notebook and development extras into that
-environment; do not create a parallel environment.
+notebook. Install one explicit PyTorch runtime profile *before* the declared
+notebook and development extras; do not create a parallel environment. This
+is necessary because a bare PyPI PyTorch install can resolve to a CPU-only
+wheel, which is unsuitable for the full training and grid-search notebooks.
 
 From the repository root in Git Bash:
 
 ~~~
 .venv/Scripts/python.exe -m pip install --upgrade pip
+.venv/Scripts/python.exe -m pip install -r requirements/torch-cu128.txt
 .venv/Scripts/python.exe -m pip install -e ".[notebooks,dev]"
 .venv/Scripts/python.exe -m ipykernel install --user --name reservoir-shoreline-segmentation --display-name "Python (Reservoir Shoreline Segmentation)"
 ~~~
+
+`requirements/torch-cu128.txt` is the required NVIDIA CUDA 12.8 profile for
+full training and grid search, including RTX 50-series hardware. Its pinned
+wheel supports the RTX 5080. Ensure the NVIDIA driver is current, then verify
+the selected environment before opening Jupyter:
+
+~~~
+.venv/Scripts/python.exe -c "import torch; assert torch.cuda.is_available(), 'CUDA is unavailable'; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.get_device_name(0))"
+~~~
+
+For a CPU-only test or smoke-test environment, install
+`requirements/torch-cpu.txt` in place of the CUDA profile. Do not run the
+full grid search after installing that profile.
 
 Open the notebook with:
 
@@ -125,6 +184,7 @@ Open the notebook with:
 If activation is unavailable, use the environment directly:
 
 ~~~
+.venv/Scripts/python.exe -m pip install -r requirements/torch-cu128.txt
 .venv/Scripts/python.exe -m pip install -e ".[notebooks,dev]"
 .venv/Scripts/jupyter.exe notebook notebooks/01_dataset_exploration.ipynb
 ~~~
@@ -157,6 +217,10 @@ python -m pytest
 python -m ruff check src tests
 jupyter notebook notebooks/01_dataset_exploration.ipynb
 ~~~
+
+For train/validation experiments, set `RIVERSCOPE_DATA` or update the source
+path in the numbered training notebooks. Use CPU for tests and smoke tests;
+run full training and grid search only on an available CUDA environment.
 
 If no dataset is available, the notebook still opens and prints the official
 download URL and expected layout.
