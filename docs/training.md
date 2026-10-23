@@ -128,7 +128,10 @@ identity across different hardware, CUDA, drivers, or PyTorch versions.
    then 8 weighted-CE trials with the selected architecture and batch size
    fixed. The two finalists are each repeated with seeds 42, 123, and 2026,
    for 26 train/validation runs in total. Every terminal trial is persisted;
-   completed configuration hashes are skipped when the notebook is rerun.
+   completed configuration hashes are skipped when the notebook is rerun. Its
+   final reconstruction panel uses only a selected finalist checkpoint and
+   fixed validation tiles; it is a qualitative diagnostic, never a test pass
+   or an additional model-selection criterion.
 2. `04_train_model.ipynb` accepts a manual frozen configuration or the winner
    persisted by the search. It runs the one- or two-tile overfit smoke test
    before a full train/validation run, renders train/validation curves, and
