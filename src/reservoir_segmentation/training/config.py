@@ -41,7 +41,7 @@ class OptimizationConfig:
     learning_rate: float = 3e-4
     weight_decay: float = 1e-4
     batch_size: int = 4
-    max_epochs: int = 100
+    max_epochs: int = 200
     scheduler_patience: int = 8
     scheduler_factor: float = 0.5
     scheduler_min_delta: float = 0.01
@@ -85,7 +85,7 @@ class SelectionConfig:
     ASSD.  This prevents shoreline gains from concealing regional collapse.
     """
 
-    early_stopping_patience: int = 20
+    early_stopping_patience: int = 40
     dice_tolerance: float = 0.01
     assd_min_delta: float = 0.01
 
