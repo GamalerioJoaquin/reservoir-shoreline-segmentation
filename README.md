@@ -32,6 +32,11 @@ records the 98 published tiles whose image values are entirely zero. The next
 active steps are to establish training and evaluation baselines that preserve
 the published geographic partitions and apply the documented exclusions.
 
+The repository now also provides a versioned geometry-processing script that
+derives binary labels, explicit validity maps, thick 8-neighbour shorelines,
+and reusable squared distance maps without modifying the original data. See
+[the data-processing guide](docs/data-processing.md).
+
 ## What is included
 
 - `notebooks/01_dataset_exploration.ipynb` loads official RiverScope split CSVs,
@@ -39,9 +44,14 @@ the published geographic partitions and apply the documented exclusions.
   visualizes RGB/NIR compositions and labels, inspects coast boundaries and
   distance-based weights, audits split identifiers, performs the numerical
   zero-value check, and provides an on-demand paginated gallery.
+- `notebooks/02_distance_maps_qc.ipynb` checks the generated binary, valid,
+  boundary, distance, and weight maps against their original multiclass label.
 - `src/reservoir_segmentation/` contains reusable utilities for downloading
   and verifying the official archive, reading split CSVs, extracting samples,
   reading TIFF metadata, inspecting boundaries, and computing distance maps.
+- `scripts/prepare_riverscope.py` derives geometry maps and per-split manifests
+  from the RiverScope ZIP or an extracted dataset. Its output is cacheable
+  across all `sigma` and `alpha` experiments.
 - `tests/` covers the reusable utilities with synthetic inputs.
 
 ## Data-quality decisions
@@ -58,9 +68,14 @@ records `nonzero_values = 0`; derived samples, the paginated gallery, and
 future training or evaluation manifests must apply this file before selecting
 tiles.
 
-The notebook preserves the published multiclase labels: `0 = background`,
+The notebook preserves the published multiclass labels: `0 = background`,
 `1 = river water`, and `2 = other water`. Its binary inspection view treats
 labels `1` and `2` as water, but does not overwrite the original mask.
+
+The supplied archive also has a small number of undocumented label-`3` pixels.
+Derived geometry treats them as invalid/no-data, so they are excluded from
+shoreline supervision, losses, and metrics while the original labels remain
+unchanged.
 
 The notebook reports observations about data quality. It does not claim model
 accuracy and does not silently repair annotations or interpret nodata as land.

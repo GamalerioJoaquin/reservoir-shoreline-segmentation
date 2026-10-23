@@ -4,6 +4,18 @@ All notable changes to this repository are documented here.
 
 ## Unreleased
 
+- Treat the 157 observed, undocumented RiverScope label-`3` pixels as explicit
+  no-data in derived geometry. They are retained in raw labels and excluded
+  from shorelines, losses, and metrics, with per-tile counts in manifests.
+- Suppress the repeated malformed `GDAL_NODATA` metadata warning emitted by
+  `tifffile` while reading RiverScope labels.
+- Added a versioned RiverScope geometry-processing pipeline that derives
+  binary water masks, explicit validity masks, thick 8-neighbour shorelines,
+  and reusable float32 squared-distance maps without modifying raw data.
+- Added a per-split processing CLI, reproducible derived-data manifests, and
+  documentation of the shoreline, validity, cache, and overwrite conventions.
+- Added tests for diagonal water/land contacts, invalid pixels, outer-tile
+  boundaries, uniform masks, label policy, and distance-map representation.
 - Added an explicit, MD5-verified downloader for the official RiverScope ZIP.
 - Added support for reading RiverScope split CSVs and extracting reproducible
   PlanetScope image/label samples from either a ZIP or an extracted folder.
