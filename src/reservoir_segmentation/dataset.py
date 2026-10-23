@@ -174,6 +174,21 @@ def _find_local_riverscope_file(root: Path, reference: str) -> Path:
     return min(matches, key=lambda path: len(path.parts))
 
 
+def resolve_riverscope_path(
+    root: str | os.PathLike[str], reference: str
+) -> Path:
+    """Resolve one safe RiverScope CSV reference in an extracted dataset.
+
+    This is intentionally read-only: it only locates the published source
+    file and never copies, renames, or modifies it.
+    """
+
+    root_path = Path(root)
+    if not root_path.is_dir():
+        raise ValueError(f"RiverScope root must be an extracted directory: {root_path}")
+    return _find_local_riverscope_file(root_path, reference)
+
+
 def _safe_planetscope_identifier(value: str) -> str:
     """Return an identifier that is safe to use in a generated filename or manifest."""
 

@@ -10,14 +10,29 @@ from skimage.segmentation import find_boundaries
 def find_boundary_pixels(
     mask: np.ndarray,
     foreground_values: set[int] | tuple[int, ...] | None = None,
+    *,
+    connectivity: int = 8,
+    mode: str = "thick",
 ) -> np.ndarray:
-    """Return a boolean map of boundaries in a 2-D categorical mask."""
+    """Return a configurable boundary map in a 2-D categorical mask.
+
+    The default is the same thick, diagonal-aware convention used by the
+    RiverScope geometry pipeline.  This general visualisation helper has no
+    validity-mask input; production distance maps should use
+    :func:`reservoir_segmentation.geometry.derive_riverscope_geometry`.
+    """
 
     array = np.asarray(mask)
     if array.ndim != 2:
         raise ValueError(f"Expected a 2-D mask, got shape {array.shape}")
+    if connectivity not in {4, 8}:
+        raise ValueError("connectivity must be 4 or 8")
     labels = array if foreground_values is None else np.isin(array, list(foreground_values))
-    return find_boundaries(labels, mode="inner")
+    return find_boundaries(
+        labels,
+        connectivity=1 if connectivity == 4 else 2,
+        mode=mode,
+    )
 
 
 def distance_squared_to_boundary(boundary: np.ndarray) -> np.ndarray:
