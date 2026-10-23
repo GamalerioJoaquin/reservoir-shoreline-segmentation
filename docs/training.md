@@ -136,4 +136,9 @@ identity across different hardware, CUDA, drivers, or PyTorch versions.
 
 All generated outputs live under `artifacts/`, which is ignored by Git. Run
 CPU tests and smoke tests locally; use a CUDA-equipped environment for the
-full grid search.
+full grid search. On Windows, install
+`requirements/torch-cu128.txt` before the editable project dependencies. It
+pins the CUDA 12.8 PyTorch runtime used for RTX 50-series GPUs. Validate with
+`torch.cuda.is_available()` and restart the Jupyter kernel after changing the
+PyTorch runtime. `requirements/torch-cpu.txt` is available only for CPU tests
+and smoke tests.

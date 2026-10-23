@@ -1,0 +1,4 @@
+# CPU-only PyTorch runtime for unit tests and smoke tests.
+# Install this file before the editable project dependencies when CUDA is unavailable.
+--index-url https://download.pytorch.org/whl/cpu
+torch==2.9.0

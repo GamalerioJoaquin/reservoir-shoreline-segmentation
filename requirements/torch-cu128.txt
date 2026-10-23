@@ -1,0 +1,4 @@
+# Pinned CUDA-enabled PyTorch runtime for NVIDIA RTX 50-series GPUs.
+# Install this file before the editable project dependencies.
+--index-url https://download.pytorch.org/whl/cu128
+torch==2.9.0

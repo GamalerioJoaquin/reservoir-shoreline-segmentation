@@ -118,16 +118,32 @@ and generated data stay outside Git.
 ## Environment setup on Windows
 
 The repository uses its existing `.venv` environment for development and the
-notebook. Install the declared notebook and development extras into that
-environment; do not create a parallel environment.
+notebook. Install one explicit PyTorch runtime profile *before* the declared
+notebook and development extras; do not create a parallel environment. This
+is necessary because a bare PyPI PyTorch install can resolve to a CPU-only
+wheel, which is unsuitable for the full training and grid-search notebooks.
 
 From the repository root in Git Bash:
 
 ~~~
 .venv/Scripts/python.exe -m pip install --upgrade pip
+.venv/Scripts/python.exe -m pip install -r requirements/torch-cu128.txt
 .venv/Scripts/python.exe -m pip install -e ".[notebooks,dev]"
 .venv/Scripts/python.exe -m ipykernel install --user --name reservoir-shoreline-segmentation --display-name "Python (Reservoir Shoreline Segmentation)"
 ~~~
+
+`requirements/torch-cu128.txt` is the required NVIDIA CUDA 12.8 profile for
+full training and grid search, including RTX 50-series hardware. Its pinned
+wheel supports the RTX 5080. Ensure the NVIDIA driver is current, then verify
+the selected environment before opening Jupyter:
+
+~~~
+.venv/Scripts/python.exe -c "import torch; assert torch.cuda.is_available(), 'CUDA is unavailable'; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.get_device_name(0))"
+~~~
+
+For a CPU-only test or smoke-test environment, install
+`requirements/torch-cpu.txt` in place of the CUDA profile. Do not run the
+full grid search after installing that profile.
 
 Open the notebook with:
 
@@ -138,6 +154,7 @@ Open the notebook with:
 If activation is unavailable, use the environment directly:
 
 ~~~
+.venv/Scripts/python.exe -m pip install -r requirements/torch-cu128.txt
 .venv/Scripts/python.exe -m pip install -e ".[notebooks,dev]"
 .venv/Scripts/jupyter.exe notebook notebooks/01_dataset_exploration.ipynb
 ~~~

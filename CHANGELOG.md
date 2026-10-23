@@ -4,6 +4,10 @@ All notable changes to this repository are documented here.
 
 ## Unreleased
 
+- Add explicit, pinned CPU and CUDA 12.8 PyTorch runtime profiles. The CUDA
+  profile supports RTX 50-series GPUs and is now required by the documented
+  full-training and grid-search setup.
+
 - Added a reproducible RiverScope train-validation-test pipeline with
   manifest-backed inputs, train-only valid-pixel normalization, deterministic
   seed controls, CPU/CUDA provenance, and internal U-Net padding that never
