@@ -288,6 +288,28 @@ def write_channel_statistics(statistics: ChannelStatistics, path: str | Path) ->
     Path(path).write_text(json.dumps(statistics.to_dict(), indent=2) + "\n", encoding="utf-8")
 
 
+def collate_segmentation_batch(samples: list[dict[str, Any]]) -> dict[str, Any]:
+    """Stack tensor fields without PyTorch's Windows shared-storage collation.
+
+    The default collation path preallocates shared storage in each worker. On
+    Windows this can fail for large RiverScope tiles even when the individual
+    tensors own resizable storage. Explicit ``torch.stack`` keeps the batch
+    construction predictable; strings remain a list so tile-level reporting
+    preserves its one-value-per-sample convention.
+    """
+
+    if not samples:
+        raise ValueError("cannot collate an empty segmentation batch")
+    return {
+        key: (
+            torch.stack([sample[key] for sample in samples])
+            if isinstance(value, torch.Tensor)
+            else [sample[key] for sample in samples]
+        )
+        for key, value in samples[0].items()
+    }
+
+
 def build_dataloader(
     dataset: Dataset[dict[str, Any]],
     *,
@@ -308,6 +330,7 @@ def build_dataloader(
         generator=generator,
         worker_init_fn=worker_init_fn(seed),
         persistent_workers=num_workers > 0,
+        collate_fn=collate_segmentation_batch,
     )
 
 

@@ -57,7 +57,7 @@ def test_dataset_batches_with_spawned_workers(tmp_path: Path):
     image_path.parent.mkdir(parents=True)
     tifffile.imwrite(
         image_path,
-        np.full((3, 4, 4), 0.25, dtype=np.float32),
+        np.full((500, 500, 4), 0.25, dtype=np.float32),
         photometric="minisblack",
     )
 
@@ -69,10 +69,10 @@ def test_dataset_batches_with_spawned_workers(tmp_path: Path):
         "distance_squared_path": "maps/distance_squared.npy",
     }
     for reference, array in {
-        map_paths["binary_mask_path"]: np.array([[0, 1, 1, 0]] * 3, dtype=np.uint8),
-        map_paths["valid_mask_path"]: np.ones((3, 4), dtype=bool),
-        map_paths["boundary_path"]: np.ones((3, 4), dtype=bool),
-        map_paths["distance_squared_path"]: np.zeros((3, 4), dtype=np.float32),
+        map_paths["binary_mask_path"]: np.zeros((500, 500), dtype=np.uint8),
+        map_paths["valid_mask_path"]: np.ones((500, 500), dtype=bool),
+        map_paths["boundary_path"]: np.ones((500, 500), dtype=bool),
+        map_paths["distance_squared_path"]: np.zeros((500, 500), dtype=np.float32),
     }.items():
         path = geometry_root / reference
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -83,7 +83,7 @@ def test_dataset_batches_with_spawned_workers(tmp_path: Path):
     with manifest.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
-        for tile_number in range(2):
+        for tile_number in range(4):
             writer.writerow(
                 {
                     "reach_id": f"reach-{tile_number}",
@@ -94,8 +94,10 @@ def test_dataset_batches_with_spawned_workers(tmp_path: Path):
 
     dataset = RiverScopeSegmentationDataset(manifest, source_root, geometry_root)
     batch = next(
-        iter(build_dataloader(dataset, batch_size=2, shuffle=False, seed=42, num_workers=2))
+        iter(build_dataloader(dataset, batch_size=4, shuffle=False, seed=42, num_workers=2))
     )
 
-    assert tuple(batch["image"].shape) == (2, 4, 3, 4)
-    assert tuple(batch["target"].shape) == (2, 3, 4)
+    assert tuple(batch["image"].shape) == (4, 4, 500, 500)
+    assert tuple(batch["target"].shape) == (4, 500, 500)
+    assert isinstance(batch["tile_id"], list)
+    assert len(batch["tile_id"]) == 4
