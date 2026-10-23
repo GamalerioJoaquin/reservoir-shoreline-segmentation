@@ -40,10 +40,14 @@ range. Standardization still uses train-only statistics because channel
 distributions differ substantially, especially NIR. No statistic is inferred
 from validation or test data.
 
-The U-Net internally pads a 500×500 input to the next multiple of its depth
-(512×512 at depth four) and crops its logits to the original size. Targets,
-validity masks, `d²`, losses, and metrics therefore remain at 500×500 and do
-not contain artificial padded pixels. Synthetic tests cover this round trip.
+The loader preserves each tile's native spatial dimensions. A batch containing
+partial tiles is padded only on its bottom and right edges to the largest tile
+in that batch; padded target, shoreline, and distance values are zero and the
+padded validity mask is false. Therefore the artificial pixels never affect a
+loss or metric. The U-Net then internally pads that batch shape to the next
+multiple of its depth (512×512 for a 500×500 batch at depth four) and crops
+its logits back to the collated shape. Synthetic tests cover variable native
+tile sizes and this round trip.
 
 ## Losses
 

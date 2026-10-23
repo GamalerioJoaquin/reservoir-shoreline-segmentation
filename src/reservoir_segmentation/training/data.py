@@ -15,6 +15,7 @@ from typing import Any
 import numpy as np
 import tifffile
 import torch
+import torch.nn.functional as functional
 from torch.utils.data import DataLoader, Dataset
 
 from reservoir_segmentation.dataset import resolve_riverscope_member, resolve_riverscope_path
@@ -289,20 +290,39 @@ def write_channel_statistics(statistics: ChannelStatistics, path: str | Path) ->
 
 
 def collate_segmentation_batch(samples: list[dict[str, Any]]) -> dict[str, Any]:
-    """Stack tensor fields without PyTorch's Windows shared-storage collation.
+    """Pad native tile sizes, then stack without Windows shared-storage collation.
 
     The default collation path preallocates shared storage in each worker. On
     Windows this can fail for large RiverScope tiles even when the individual
-    tensors own resizable storage. Explicit ``torch.stack`` keeps the batch
-    construction predictable; strings remain a list so tile-level reporting
-    preserves its one-value-per-sample convention.
+    tensors own resizable storage. RiverScope also includes valid partial
+    tiles smaller than 500 x 500. Every spatial tensor is padded on its bottom
+    and right edge to the largest tile in the batch. Padded targets, boundary,
+    and distance values are zero; the matching validity-mask padding is false,
+    so it is excluded from every loss and metric. Explicit ``torch.stack``
+    then keeps batch construction predictable; strings remain lists so
+    tile-level reporting preserves its one-value-per-sample convention.
     """
 
     if not samples:
         raise ValueError("cannot collate an empty segmentation batch")
+    if any(not isinstance(sample.get("image"), torch.Tensor) for sample in samples):
+        raise ValueError("every segmentation sample must include an image tensor")
+    max_height = max(int(sample["image"].shape[-2]) for sample in samples)
+    max_width = max(int(sample["image"].shape[-1]) for sample in samples)
+
+    def pad_spatial_tensor(tensor: torch.Tensor) -> torch.Tensor:
+        if tensor.ndim < 2:
+            return tensor
+        height, width = tensor.shape[-2:]
+        pad_bottom = max_height - height
+        pad_right = max_width - width
+        if pad_bottom < 0 or pad_right < 0:
+            raise ValueError("spatial tensor exceeds its sample image dimensions")
+        return functional.pad(tensor, (0, pad_right, 0, pad_bottom))
+
     return {
         key: (
-            torch.stack([sample[key] for sample in samples])
+            torch.stack([pad_spatial_tensor(sample[key]) for sample in samples])
             if isinstance(value, torch.Tensor)
             else [sample[key] for sample in samples]
         )
