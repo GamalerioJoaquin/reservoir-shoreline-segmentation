@@ -94,6 +94,74 @@ def _loader_contains_test(loader: DataLoader[Any]) -> bool:
     return manifest_path is not None and Path(manifest_path).stem == "test"
 
 
+_CONFUSION_FIELDS = ("true_positive", "false_positive", "false_negative", "true_negative")
+
+
+def _progress_postfix(
+    total_loss: float,
+    total_loss_pixels: int,
+    regional_totals: Mapping[str, int],
+    skipped_batches: int,
+) -> dict[str, str]:
+    """Format stable, epoch-to-date regional metrics for a tqdm postfix."""
+
+    regional = merge_regional_metrics((regional_totals,))
+    postfix = {
+        "loss": f"{total_loss / total_loss_pixels:.4f}" if total_loss_pixels else "n/a",
+        "dice": _format_metric(regional["dice"]),
+        "iou": _format_metric(regional["iou"]),
+        "acc": _format_metric(regional["masked_accuracy"]),
+    }
+    if skipped_batches:
+        postfix["skipped"] = str(skipped_batches)
+    return postfix
+
+
+def _format_metric(value: float | int | None) -> str:
+    """Render metrics consistently in progress output, including unavailable values."""
+
+    return "n/a" if value is None else f"{float(value):.4f}"
+
+
+def _format_epoch_summary(
+    *,
+    epoch: int,
+    max_epochs: int,
+    training: Mapping[str, Any],
+    validation: Mapping[str, Any],
+    selection_assd: float | None,
+    learning_rate: float,
+    checkpoint_update_reason: str | None,
+    epochs_without_checkpoint_update: int | None,
+    early_stopping_patience: int,
+) -> str:
+    """Return one readable, persistent summary line after a complete epoch."""
+
+    def regional_text(result: Mapping[str, Any]) -> str:
+        metrics = result["regional"]
+        return (
+            f"loss={_format_metric(result['loss'])} "
+            f"dice={_format_metric(metrics['dice'])} "
+            f"iou={_format_metric(metrics['iou'])} "
+            f"acc={_format_metric(metrics['masked_accuracy'])}"
+        )
+
+    checkpoint_text = (
+        f"checkpoint={checkpoint_update_reason}"
+        if checkpoint_update_reason is not None
+        else (
+            "checkpoint_wait=n/a"
+            if epochs_without_checkpoint_update is None
+            else f"checkpoint_wait={epochs_without_checkpoint_update}/{early_stopping_patience}"
+        )
+    )
+    return (
+        f"epoch {epoch}/{max_epochs} | train {regional_text(training)} | "
+        f"valid {regional_text(validation)} | val_assd={_format_metric(selection_assd)} | "
+        f"next_lr={learning_rate:.2e} | {checkpoint_text}"
+    )
+
+
 def _run_epoch(
     model: nn.Module,
     loader: DataLoader[Any],
@@ -112,19 +180,30 @@ def _run_epoch(
     skipped_batches = 0
     skipped_tiles = 0
     regional_records: list[dict[str, float | int | None]] = []
+    regional_totals = {field: 0 for field in _CONFUSION_FIELDS}
     tile_records: list[dict[str, Any]] = []
     amp_enabled = use_mixed_precision and device.type == "cuda"
     scaler = torch.amp.GradScaler("cuda", enabled=amp_enabled)
     context = torch.enable_grad if is_training else torch.no_grad
+    batch_count = len(loader)
+    progress_update_every = max(1, batch_count // 20)
     with context():
         progress = tqdm(loader, desc=progress_label, leave=False)
-        for batch in progress:
+        for batch_index, batch in enumerate(progress, start=1):
             device_batch = _move_tensors(batch, device)
             valid_pixels = int(device_batch["valid_mask"].sum().item())
             if valid_pixels == 0:
                 skipped_batches += 1
                 skipped_tiles += int(device_batch["image"].shape[0])
-                progress.set_postfix(skipped=skipped_batches)
+                if batch_index % progress_update_every == 0 or batch_index == batch_count:
+                    progress.set_postfix(
+                        _progress_postfix(
+                            total_loss,
+                            total_loss_pixels,
+                            regional_totals,
+                            skipped_batches,
+                        )
+                    )
                 continue
             if is_training:
                 optimizer.zero_grad(set_to_none=True)
@@ -150,6 +229,8 @@ def _run_epoch(
                     skipped_tiles += 1
                     continue
                 regional_records.append(regional)
+                for field in _CONFUSION_FIELDS:
+                    regional_totals[field] += int(regional[field])
                 if collect_tile_metrics:
                     tile_records.append(
                         {
@@ -164,7 +245,15 @@ def _run_epoch(
                             ),
                         }
                     )
-            progress.set_postfix(loss=f"{float(loss.detach().item()):.4f}")
+            if batch_index % progress_update_every == 0 or batch_index == batch_count:
+                progress.set_postfix(
+                    _progress_postfix(
+                        total_loss,
+                        total_loss_pixels,
+                        regional_totals,
+                        skipped_batches,
+                    )
+                )
     global_regional = merge_regional_metrics(regional_records)
     shoreline = aggregate_shoreline_by_group(tile_records) if collect_tile_metrics else None
     return {
@@ -303,6 +392,22 @@ def run_training(
                         "validation": epoch_metrics["validation"],
                     }
                 )
+            epochs_without_checkpoint_update = (
+                None if selector.best_epoch is None else epoch - selector.best_epoch
+            )
+            tqdm.write(
+                _format_epoch_summary(
+                    epoch=epoch,
+                    max_epochs=config.optimization.max_epochs,
+                    training=training,
+                    validation=validation,
+                    selection_assd=selection_assd,
+                    learning_rate=optimizer.param_groups[0]["lr"],
+                    checkpoint_update_reason=update_reason,
+                    epochs_without_checkpoint_update=epochs_without_checkpoint_update,
+                    early_stopping_patience=config.selection.early_stopping_patience,
+                )
+            )
             if selector.best_epoch is not None and (
                 epoch - selector.best_epoch >= config.selection.early_stopping_patience
             ):

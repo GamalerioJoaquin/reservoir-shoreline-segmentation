@@ -116,6 +116,14 @@ default patience 8.
 Every run records the full configuration, seed, package versions, Git commit,
 chosen device, deterministic-mode setting, train-only channel statistics,
 metrics per epoch, best checkpoint, and a final completed or failed status.
+During an epoch, each progress bar reports the cumulative masked loss, Dice,
+IoU, and accuracy over processed valid pixels (rather than the volatile loss
+of its latest mini-batch), refreshing at most about 20 times per epoch. A
+persistent line at every epoch close reports those train and validation
+metrics, validation selection ASSD, the learning rate to be used next, and
+the checkpoint/early-stopping wait state. Each run also saves `curves.png`:
+masked train/validation loss, all three regional train/validation metrics,
+and validation selection ASSD.
 The seed function covers Python, NumPy, PyTorch CPU/CUDA, DataLoader generator,
 and worker initialization. Deterministic mode disables `cudnn.benchmark`.
 This improves repeatability on a fixed stack but cannot guarantee bit-for-bit
