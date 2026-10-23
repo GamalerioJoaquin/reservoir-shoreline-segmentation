@@ -19,6 +19,7 @@ dependencies = [
     "scikit-image>=0.22",
     "scipy>=1.10",
     "tifffile>=2023.7",
+    "torch>=2.2",
 ]
 
 [project.optional-dependencies]
