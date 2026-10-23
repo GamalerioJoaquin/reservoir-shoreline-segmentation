@@ -20,6 +20,7 @@ dependencies = [
     "scipy>=1.10",
     "tifffile>=2023.7",
     "torch>=2.2",
+    "tqdm>=4.66",
 ]
 
 [project.optional-dependencies]

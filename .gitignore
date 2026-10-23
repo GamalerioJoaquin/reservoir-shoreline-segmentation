@@ -25,6 +25,7 @@ data/processed/
 reports/figures/
 reports/tables/
 data/processed/riverscope_quality_review.csv
+artifacts/
 *.html
 *.pdf
 

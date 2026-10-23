@@ -4,6 +4,21 @@ All notable changes to this repository are documented here.
 
 ## Unreleased
 
+- Added a reproducible RiverScope train-validation-test pipeline with
+  manifest-backed inputs, train-only valid-pixel normalization, deterministic
+  seed controls, CPU/CUDA provenance, and internal U-Net padding that never
+  exposes artificial pixels to losses or metrics.
+- Added masked CE and the documented unnormalized weighted CE, regional and
+  grouped shoreline metrics, explicit degenerate-boundary reporting, ASSD with
+  a Dice safety constraint for checkpointing, mandatory early stopping, and
+  persistent experiment/checkpoint/trial artifacts.
+- Added progressive, resumable CE and weighted-CE grid-search helpers plus
+  numbered grid-search, training, and test-visualization notebooks.
+- Added synthetic training tests for validity masks, padded model output,
+  weighted-loss normalization, shoreline edge cases, split leakage, and
+  checkpoint selection.
+- Documented the training, selection, metric, reproducibility, and test-lock
+  conventions.
 - Treat the 157 observed, undocumented RiverScope label-`3` pixels as explicit
   no-data in derived geometry. They are retained in raw labels and excluded
   from shorelines, losses, and metrics, with per-tile counts in manifests.

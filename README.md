@@ -25,12 +25,12 @@ The work aims to:
 
 ## Current status and active development
 
-The current implementation provides a verified acquisition path, a notebook
-for visual and quantitative quality control, a numerical zero-value check, and
-reusable utilities covered by synthetic tests. The current exclusion manifest
-records the 98 published tiles whose image values are entirely zero. The next
-active steps are to establish training and evaluation baselines that preserve
-the published geographic partitions and apply the documented exclusions.
+The current implementation provides a verified acquisition path, quality
+control, versioned geometry, a modular four-channel U-Net, and a reproducible
+train-validation-test pipeline with resumable experiment artifacts. The
+current exclusion manifest records the 98 published tiles whose image values
+are entirely zero. Training and selection preserve the published geographic
+partitions; test remains locked until a final configuration is chosen.
 
 The repository now also provides a versioned geometry-processing script that
 derives binary labels, explicit validity maps, thick 8-neighbour shorelines,
@@ -52,7 +52,20 @@ and reusable squared distance maps without modifying the original data. See
 - `scripts/prepare_riverscope.py` derives geometry maps and per-split manifests
   from the RiverScope ZIP or an extracted dataset. Its output is cacheable
   across all `sigma` and `alpha` experiments.
+- `src/reservoir_segmentation/models/` provides the configurable U-Net. It
+  pads inputs internally and returns original-size logits for two-class CE.
+- `src/reservoir_segmentation/training/` provides manifest-backed datasets,
+  train-only normalization, reproducibility controls, masked losses, regional
+  and shoreline metrics, training/evaluation loops, checkpointing, and
+  resumable grid-search artifacts.
+- `notebooks/03_grid_search.ipynb`, `04_train_model.ipynb`, and
+  `05_test_visualization.ipynb` run progressive configuration search, final
+  train/validation, and strictly post-selection test evaluation.
 - `tests/` covers the reusable utilities with synthetic inputs.
+
+See [the training and evaluation guide](docs/training.md) for the split lock,
+validity policy, losses, metrics, checkpoint rule, reproducibility limits, and
+notebook workflow.
 
 ## Data-quality decisions
 
@@ -157,6 +170,10 @@ python -m pytest
 python -m ruff check src tests
 jupyter notebook notebooks/01_dataset_exploration.ipynb
 ~~~
+
+For train/validation experiments, set `RIVERSCOPE_DATA` or update the source
+path in the numbered training notebooks. Use CPU for tests and smoke tests;
+run full training and grid search only on an available CUDA environment.
 
 If no dataset is available, the notebook still opens and prints the official
 download URL and expected layout.
