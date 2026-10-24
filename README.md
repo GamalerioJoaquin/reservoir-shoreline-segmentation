@@ -40,7 +40,7 @@ and reusable squared distance maps without modifying the original data. See
 
 ## First post-selection test result
 
-The active `training-pipeline` branch now contains its first end-to-end test
+The `main` branch now contains its first end-to-end test
 result. It evaluates the frozen weighted cross-entropy U-Net checkpoint chosen
 on validation only; the 224 test tiles did not participate in configuration
 selection, early stopping, or checkpoint selection. This is an initial,
